@@ -6,9 +6,9 @@
 #      so the push is not a fast-forward; the lease pins the remote to the
 #      pre-rebase HEAD and refuses if anyone else pushed meanwhile)
 #   3. recreate any new upstream releases with identical title/notes/assets
-#   4. rebuild the docker image: a code push auto-triggers docker.yml;
-#      a docs-only sync dispatches docker.yml explicitly so the image
-#      is rebuilt on every upstream update, as requested.
+#   4. rebuild the docker image: always dispatch docker.yml explicitly
+#      after a sync push (pushes made with GITHUB_TOKEN never trigger
+#      other workflows, so the push alone would never start a build).
 # No change upstream -> the run exits quietly. A rebase conflict fails
 # the run loudly (never silently skip, never push --force without a lease).
 name: upstream-sync
@@ -56,7 +56,6 @@ jobs:
           CHANGED=$(git diff --name-only "$BASE" upstream/main || true)
           echo "upstream changed files:"
           echo "$CHANGED"
-          NEEDS_DOCKER_DISPATCH=false
           if git merge-base --is-ancestor upstream/main HEAD; then
             echo "code already up to date with upstream"
           else
@@ -69,18 +68,11 @@ jobs:
             git push --force-with-lease=main:"$OLD_HEAD" origin main
             git push origin --tags
             echo "pushed main + tags"
-            if echo "$CHANGED" | grep -Eq '^(Dockerfile|requirements\.txt|[^/]+\.py|admin\.html|version\.json|extension/|tools/|deploy/|\.github/workflows/docker\.yml)'; then
-              echo "code changes touch docker paths: docker.yml auto-triggers on this push"
-            else
-              echo "docs-only change: docker.yml will be dispatched explicitly"
-              NEEDS_DOCKER_DISPATCH=true
-            fi
-          fi
-          if [ "$NEEDS_DOCKER_DISPATCH" = true ]; then
+            # Pushes made with GITHUB_TOKEN never trigger other workflows,
+            # so the docker build must be dispatched explicitly every time.
             gh workflow run docker.yml --repo "$TARGET_REPO" --ref main
             echo "dispatched docker.yml"
           fi
-          echo "NEEDS_DOCKER_DISPATCH=$NEEDS_DOCKER_DISPATCH" >> "$GITHUB_ENV"
 
       - name: Sync releases from upstream
         run: |
