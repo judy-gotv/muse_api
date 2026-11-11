@@ -10,7 +10,6 @@
 
 将 **[muse.ai](https://muse.ai/)** 网页端的前沿多模态能力逆向工程封装为标准的 **OpenAI 兼容 RESTful API**。通过无头浏览器 CDP 协议穿透、热备 WebSocket 隧道复用与动态 Session 管理，原生支持文本对话（2~3 秒级流式首字响应）、文生图、图生图编辑、文生视频、首帧图生视频，并提供多账号池亲和轮转、全自动 48 小时会话续期与云端 VM 唤醒保活，以及配套 Chrome 一键导号扩展。
 
-> 📦 本仓库是上游 [czg86389-hub/muse2api](https://github.com/czg86389-hub/muse2api) 的同步镜像：每 6 小时自动同步代码、Release 与镜像，预构建镜像见 [ghcr.io/judy-gotv/muse_api](https://github.com/judy-gotv/muse_api/pkgs/container/muse_api)。原作者与贡献者见下方致谢。
 
 ---
 
@@ -23,7 +22,7 @@
 - **电商详情图**：一张白底图，一键生成首图、场景图、卖点图、细节图、对比图整套
 - **AI 图片与工具**：商品精修、GIF 动图、数字人、字幕擦除、画质增强
 
-👉 立即体验：[www.coolai.mov](https://www.coolai.mov/?utm_source=github&utm_medium=readme&utm_campaign=muse2api)
+
 
 ### 🎬 Recommended: COOL AI — AI video & image studio for e-commerce
 
@@ -34,7 +33,7 @@ Upload one product photo and get talking-head sales videos, story-style ad short
 - **Product detail images**: hero, lifestyle, selling-point, detail and comparison images from one white-background photo
 - **More tools**: product retouching, GIF animations, digital humans, subtitle removal, upscaling
 
-👉 Try it: [www.coolai.mov](https://www.coolai.mov/?utm_source=github&utm_medium=readme&utm_campaign=muse2api)
+
 
 
 ---
