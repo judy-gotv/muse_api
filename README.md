@@ -10,6 +10,8 @@
 
 将 **[muse.ai](https://muse.ai/)** 网页端的前沿多模态能力逆向工程封装为标准的 **OpenAI 兼容 RESTful API**。通过无头浏览器 CDP 协议穿透、热备 WebSocket 隧道复用与动态 Session 管理，原生支持文本对话（2~3 秒级流式首字响应）、文生图、图生图编辑、文生视频、首帧图生视频，并提供多账号池亲和轮转、全自动 48 小时会话续期与云端 VM 唤醒保活，以及配套 Chrome 一键导号扩展。
 
+> 📦 本仓库是上游 [czg86389-hub/muse2api](https://github.com/czg86389-hub/muse2api) 的同步镜像：每 6 小时自动同步代码、Release 与镜像，预构建镜像见 [ghcr.io/judy-gotv/muse_api](https://github.com/judy-gotv/muse_api/pkgs/container/muse_api)。原作者与贡献者见下方致谢。
+
 ---
 
 ## 🎬 推荐：COOL AI — 电商 AI 视频与图片一站式创作
@@ -154,7 +156,7 @@ Upload one product photo and get talking-head sales videos, story-style ad short
 
 > **v1.6.6 用户请务必手动升级插件：Chrome/Edge 扩展最低 1.0.2，油猴脚本最低 1.1.2。**
 > 服务端更新不会自动替换已加载的扩展。下载本 Release 的 ZIP，覆盖原扩展目录文件，在 chrome://extensions / edge://extensions 点击“重新加载”；不同个人资料分别升级。弹窗标题旁应显示 **v1.0.2**。
-> [下载扩展 1.0.2](https://github.com/czg86389-hub/muse2api/releases/download/v1.6.6/muse2api-chrome-extension-v1.6.6.zip)。只有 hatch_sess 是导入必要项；hatch_vml 和 hatch_gw 缺失不能据此判定未登录。重新导入后再点击账号“测试”。
+> [下载扩展 1.0.2](https://github.com/judy-gotv/muse_api/releases/download/v1.6.6/muse2api-chrome-extension-v1.6.6.zip)。只有 hatch_sess 是导入必要项；hatch_vml 和 hatch_gw 缺失不能据此判定未登录。重新导入后再点击账号“测试”。
 >
 > **Manual extension upgrade required:** extension 1.0.2+ / userscript 1.1.2+. A server update does not upgrade unpacked extensions. Replace files in the original folder and click Reload, separately for every browser profile.
 
@@ -171,7 +173,7 @@ Upload one product photo and get talking-head sales videos, story-style ad short
 ### 方式 B：Tampermonkey 油猴脚本（跨浏览器免安装扩展）
 对于不想开启开发者模式或使用 Firefox / Safari 的用户，推荐直接使用油猴脚本一键安装：
 
-👉 **[⚡ 点击一键安装油猴脚本 (Raw UserJS)](https://raw.githubusercontent.com/czg86389-hub/muse2api/main/tools/muse2api_cookie_importer.user.js)**
+👉 **[⚡ 点击一键安装油猴脚本 (Raw UserJS)](https://raw.githubusercontent.com/judy-gotv/muse_api/main/tools/muse2api_cookie_importer.user.js)**
 
 1. 在浏览器安装 [Tampermonkey](https://www.tampermonkey.net/) 插件。
 2. 点击上方 **「⚡ 点击一键安装油猴脚本」** 链接，Tampermonkey 将自动弹出安装窗口，点击「安装」即可（无需手动复制粘贴代码）。
