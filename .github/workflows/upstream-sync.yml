@@ -2,13 +2,15 @@
 # Auto-track upstream czg86389-hub/muse2api and sync it into this repo.
 # Every 6h (Beijing 02:17 / 08:17 / 14:17 / 20:17):
 #   1. rebase our commits (workflows + README) onto the new upstream main
-#   2. push main + new tags
+#   2. push main + new tags (force-with-lease: rebase rewrites our commits,
+#      so the push is not a fast-forward; the lease pins the remote to the
+#      pre-rebase HEAD and refuses if anyone else pushed meanwhile)
 #   3. recreate any new upstream releases with identical title/notes/assets
 #   4. rebuild the docker image: a code push auto-triggers docker.yml;
 #      a docs-only sync dispatches docker.yml explicitly so the image
 #      is rebuilt on every upstream update, as requested.
 # No change upstream -> the run exits quietly. A rebase conflict fails
-# the run loudly (never force-push, never silently skip).
+# the run loudly (never silently skip, never push --force without a lease).
 name: upstream-sync
 
 on:
@@ -64,7 +66,7 @@ jobs:
               echo "::error::rebase conflict with upstream, sync aborted (no push made)"
               exit 1
             fi
-            git push origin main
+            git push --force-with-lease=main:"$OLD_HEAD" origin main
             git push origin --tags
             echo "pushed main + tags"
             if echo "$CHANGED" | grep -Eq '^(Dockerfile|requirements\.txt|[^/]+\.py|admin\.html|version\.json|extension/|tools/|deploy/|\.github/workflows/docker\.yml)'; then
