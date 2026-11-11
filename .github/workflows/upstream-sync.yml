@@ -1,0 +1,160 @@
+# Author: Passwd Word
+# Auto-track upstream czg86389-hub/muse2api and sync it into this repo.
+# Every 6h (Beijing 02:17 / 08:17 / 14:17 / 20:17):
+#   1. rebase our commits (workflows + README) onto the new upstream main
+#   2. push main + new tags
+#   3. recreate any new upstream releases with identical title/notes/assets
+#   4. rebuild the docker image: a code push auto-triggers docker.yml;
+#      a docs-only sync dispatches docker.yml explicitly so the image
+#      is rebuilt on every upstream update, as requested.
+# No change upstream -> the run exits quietly. A rebase conflict fails
+# the run loudly (never force-push, never silently skip).
+name: upstream-sync
+
+on:
+  schedule:
+    - cron: "17 18,0,6,12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_REPO: czg86389-hub/muse2api
+      TARGET_REPO: judy-gotv/muse_api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync code, tags and releases from upstream
+        run: |
+          set -euo pipefail
+          git config user.name "Passwd Word"
+          git config user.email "passwd@example.com"
+          git remote add upstream "https://github.com/${SOURCE_REPO}.git" 2>/dev/null || true
+          git fetch upstream main --tags
+          git fetch origin --tags
+          OLD_HEAD=$(git rev-parse HEAD)
+          UPSTREAM_HEAD=$(git rev-parse upstream/main)
+          BASE=$(git merge-base HEAD upstream/main)
+          echo "local HEAD: $OLD_HEAD"
+          echo "upstream HEAD: $UPSTREAM_HEAD"
+          echo "merge-base: $BASE"
+          CHANGED=$(git diff --name-only "$BASE" upstream/main || true)
+          echo "upstream changed files:"
+          echo "$CHANGED"
+          NEEDS_DOCKER_DISPATCH=false
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "code already up to date with upstream"
+          else
+            echo "rebasing our commits onto upstream $UPSTREAM_HEAD"
+            if ! git rebase upstream/main; then
+              git rebase --abort
+              echo "::error::rebase conflict with upstream, sync aborted (no push made)"
+              exit 1
+            fi
+            git push origin main
+            git push origin --tags
+            echo "pushed main + tags"
+            if echo "$CHANGED" | grep -Eq '^(Dockerfile|requirements\.txt|[^/]+\.py|admin\.html|version\.json|extension/|tools/|deploy/|\.github/workflows/docker\.yml)'; then
+              echo "code changes touch docker paths: docker.yml auto-triggers on this push"
+            else
+              echo "docs-only change: docker.yml will be dispatched explicitly"
+              NEEDS_DOCKER_DISPATCH=true
+            fi
+          fi
+          if [ "$NEEDS_DOCKER_DISPATCH" = true ]; then
+            gh workflow run docker.yml --repo "$TARGET_REPO" --ref main
+            echo "dispatched docker.yml"
+          fi
+          echo "NEEDS_DOCKER_DISPATCH=$NEEDS_DOCKER_DISPATCH" >> "$GITHUB_ENV"
+
+      - name: Sync releases from upstream
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          import urllib.request
+
+          src = os.environ["SOURCE_REPO"]
+          dst = os.environ["TARGET_REPO"]
+          work = "/tmp/release-sync"
+          os.makedirs(work, exist_ok=True)
+
+
+          def api_get(url):
+              req = urllib.request.Request(url, headers={"User-Agent": "muse-api-release-sync"})
+              with urllib.request.urlopen(req, timeout=60) as r:
+                  return json.load(r)
+
+
+          def run(cmd, check=True):
+              print("+", " ".join(cmd))
+              p = subprocess.run(cmd, capture_output=True, text=True)
+              if p.stdout:
+                  print(p.stdout, end="")
+              if p.stderr:
+                  print(p.stderr, end="", file=sys.stderr)
+              if check and p.returncode != 0:
+                  raise SystemExit(f"command failed ({p.returncode}): {cmd[0]}")
+              return p
+
+
+          releases = api_get(f"https://api.github.com/repos/{src}/releases?per_page=100")
+          releases.sort(key=lambda r: r["published_at"])
+          created, skipped = [], []
+          for rel in releases:
+              tag = rel["tag_name"]
+              exists = subprocess.run(
+                  ["gh", "release", "view", tag, "--repo", dst],
+                  capture_output=True, text=True,
+              )
+              if exists.returncode == 0:
+                  print(f"skip {tag}: already exists in {dst}")
+                  skipped.append(tag)
+                  continue
+              tagdir = os.path.join(work, tag)
+              os.makedirs(tagdir, exist_ok=True)
+              body_file = os.path.join(tagdir, "BODY.md")
+              with open(body_file, "w", encoding="utf-8") as f:
+                  f.write(rel.get("body") or "")
+              asset_paths = []
+              for asset in rel.get("assets", []):
+                  dest = os.path.join(tagdir, asset["name"])
+                  urllib.request.urlretrieve(asset["browser_download_url"], dest)
+                  size = os.path.getsize(dest)
+                  if size != asset["size"]:
+                      raise SystemExit(
+                          f"size mismatch for {asset['name']}: got {size}, want {asset['size']}"
+                      )
+                  asset_paths.append(dest)
+                  print(f"downloaded {asset['name']} ({size} bytes)")
+              cmd = [
+                  "gh", "release", "create", tag,
+                  "--repo", dst,
+                  "--title", rel["name"] or tag,
+                  "--notes-file", body_file,
+                  "--target", rel["target_commitish"],
+              ]
+              if rel.get("draft"):
+                  cmd.append("--draft")
+              if rel.get("prerelease"):
+                  cmd.append("--prerelease")
+              cmd.extend(asset_paths)
+              run(cmd)
+              created.append(tag)
+          print(f"done: created={created} skipped={skipped}")
+          PY
