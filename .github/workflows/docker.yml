@@ -1,0 +1,89 @@
+# Author: Passwd Word
+# Build the muse2api image and publish it to GitHub Packages (GHCR):
+# ghcr.io/judy-gotv/muse_api:latest / :<version from version.json> / :sha-<short>
+# Triggered by code pushes to main or manually. Multi-arch amd64 + arm64.
+name: docker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "requirements.txt"
+      - "*.py"
+      - "admin.html"
+      - "version.json"
+      - "extension/**"
+      - "tools/**"
+      - "deploy/**"
+      - ".github/workflows/docker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-main
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version
+        id: ver
+        run: |
+          echo "version=$(python3 -c 'import json; print(json.load(open("version.json"))["version"])')" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/judy-gotv/muse_api
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ steps.ver.outputs.version }}
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Smoke test published image
+        run: |
+          set -euo pipefail
+          IMAGE="ghcr.io/judy-gotv/muse_api@${{ steps.build.outputs.digest }}"
+          echo "Testing $IMAGE"
+          docker run -d --name muse2api-smoke -p 18610:18610 "$IMAGE"
+          ok=""
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:18610/healthz; then ok=1; break; fi
+            sleep 2
+          done
+          if [ -z "$ok" ]; then echo "healthz never became ready"; docker logs muse2api-smoke || true; exit 1; fi
+          docker logs muse2api-smoke | tail -20
+          docker rm -f muse2api-smoke
+          echo "Smoke test passed: $IMAGE"

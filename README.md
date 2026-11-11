@@ -82,8 +82,8 @@ Upload one product photo and get talking-head sales videos, story-style ad short
 
 1. **克隆代码并进入目录**：
    ```bash
-   git clone https://github.com/czg86389-hub/muse2api.git
-   cd muse2api
+   git clone https://github.com/judy-gotv/muse_api.git
+   cd muse_api
    ```
 
 2. **配置环境变量（可选）**：
@@ -101,6 +101,12 @@ Upload one product photo and get talking-head sales videos, story-style ad short
 
 4. **访问管理面板**：
    打开浏览器访问：`http://<你的服务器IP>:18610/admin?key=<你的MUSE2API_KEY>`
+
+   预构建镜像（GitHub Packages / GHCR，每次推送 main 自动构建）也可以直接拉取，不用本地构建：
+   ```bash
+   docker pull ghcr.io/judy-gotv/muse_api:latest
+   docker run -d --name muse2api -p 18610:18610 -v ./data:/app/data ghcr.io/judy-gotv/muse_api:latest
+   ```
 
 ---
 
